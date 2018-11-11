@@ -20,9 +20,9 @@ else:
 
 # Constants
 KEEP_PROB = 0.8
-LEARNING_RATE = 1e-3
-EPOCHS = 30
-BATCH_SIZE = 5
+LEARNING_RATE = 1e-4
+EPOCHS = 50
+BATCH_SIZE = 10
 
 
 def load_vgg(sess, vgg_path):
