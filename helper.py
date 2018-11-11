@@ -65,6 +65,7 @@ def gen_batch_function(data_folder, image_shape):
     :param image_shape: Tuple - Shape of image
     :return:
     """
+
     def get_batches_fn(batch_size):
         """
         Create batches of training data
@@ -81,7 +82,7 @@ def gen_batch_function(data_folder, image_shape):
         for batch_i in range(0, len(image_paths), batch_size):
             images = []
             gt_images = []
-            for image_file in image_paths[batch_i:batch_i+batch_size]:
+            for image_file in image_paths[batch_i:batch_i + batch_size]:
                 gt_image_file = label_paths[os.path.basename(image_file)]
 
                 image = scipy.misc.imresize(scipy.misc.imread(image_file), image_shape)
@@ -95,6 +96,7 @@ def gen_batch_function(data_folder, image_shape):
                 gt_images.append(gt_image)
 
             yield np.array(images), np.array(gt_images)
+
     return get_batches_fn
 
 
@@ -138,3 +140,15 @@ def save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_p
         sess, logits, keep_prob, input_image, os.path.join(data_dir, 'data_road/testing'), image_shape)
     for name, image in image_outputs:
         scipy.misc.imsave(os.path.join(output_dir, name), image)
+
+
+def conv_1x1(layer, num_classes, layer_name):
+    return tf.layers.conv2d(layer, num_classes, kernel_size=1, strides=(1, 1), padding='same',
+                            kernel_initializer=tf.random_normal_initializer(stddev=0.01),
+                            kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3), name=layer_name)
+
+
+def conv2d_transpose(layer, num_classes, layer_name, kernel=4, stride=(2, 2)):
+    return tf.layers.conv2d_transpose(layer, num_classes, kernel_size=kernel, strides=stride,
+                                      padding='same', kernel_initializer=tf.random_normal_initializer(stddev=0.01),
+                                      kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3), name=layer_name)

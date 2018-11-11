@@ -6,9 +6,9 @@ import warnings
 from distutils.version import LooseVersion
 import project_tests as tests
 
-
 # Check TensorFlow Version
-assert LooseVersion(tf.__version__) >= LooseVersion('1.0'), 'Please use TensorFlow version 1.0 or newer.  You are using {}'.format(tf.__version__)
+assert LooseVersion(tf.__version__) >= LooseVersion(
+    '1.0'), 'Please use TensorFlow version 1.0 or newer.  You are using {}'.format(tf.__version__)
 print('TensorFlow Version: {}'.format(tf.__version__))
 
 # Check for a GPU
@@ -33,8 +33,18 @@ def load_vgg(sess, vgg_path):
     vgg_layer3_out_tensor_name = 'layer3_out:0'
     vgg_layer4_out_tensor_name = 'layer4_out:0'
     vgg_layer7_out_tensor_name = 'layer7_out:0'
-    
-    return None, None, None, None, None
+
+    tf.saved_model.loader.load(sess, [vgg_tag], vgg_path)
+    graph = tf.get_default_graph()
+    image_input = graph.get_tensor_by_name(vgg_input_tensor_name)
+    keep_prob = graph.get_tensor_by_name(vgg_keep_prob_tensor_name)
+    layer3_out = graph.get_tensor_by_name(vgg_layer3_out_tensor_name)
+    layer4_out = graph.get_tensor_by_name(vgg_layer4_out_tensor_name)
+    layer7_out = graph.get_tensor_by_name(vgg_layer7_out_tensor_name)
+
+    return image_input, keep_prob, layer3_out, layer4_out, layer7_out
+
+
 tests.test_load_vgg(load_vgg, tf)
 
 
@@ -48,7 +58,27 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :return: The Tensor for the last layer of output
     """
     # TODO: Implement function
-    return None
+
+    layer_7_1x1 = helper.conv_1x1(vgg_layer7_out, num_classes, "Layer_7_conv2d_1x1")
+    layer_7_out = helper.conv2d_transpose(layer_7_1x1, num_classes, "Layer_7_transpose")
+
+    layer_4_1x1 = helper.conv_1x1(vgg_layer4_out, num_classes, "Layer_4_conv2d_1x1")
+
+    # Adding in the skip layer
+    skip_1 = tf.add(layer_7_out, layer_4_1x1)
+
+    layer_4_out = helper.conv2d_transpose(skip_1, num_classes, "Layer_4_skip_out")
+
+    layer_3_1x1 = helper.conv_1x1(vgg_layer3_out, num_classes, "Layer_3_conv2d_1x1")
+
+    # The second skip layer
+    skip_2 = tf.add(layer_4_out, layer_3_1x1)
+
+    output = helper.conv2d_transpose(skip_2, num_classes, "Output_layer", kernel=16, stride=(8, 8))
+
+    return output
+
+
 tests.test_layers(layers)
 
 
@@ -62,7 +92,18 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
     # TODO: Implement function
-    return None, None, None
+
+    logits = tf.reshape(nn_last_layer, (-1, num_classes))
+    labels = tf.reshape(correct_label, (-1, num_classes))
+
+    # Using softmax_cross_entropy_with_logits_v2 since softmax_cross_entropy_with_logits is marked as deprecated
+    cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=logits))
+
+    train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cross_entropy_loss)
+
+    return logits, train_op, cross_entropy_loss
+
+
 tests.test_optimize(optimize)
 
 
@@ -82,7 +123,18 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     # TODO: Implement function
+
+    for epoch in epochs:
+        print("Running Epoch - " + epoch)
+        for image, label in get_batches_fn(batch_size):
+            train, loss = sess.run([train_op, cross_entropy_loss], feed_dict={input_image: image,
+                                                                              correct_label: label,
+                                                                              keep_prob: keep_prob,
+                                                                              learning_rate: learning_rate})
+            print("Loss: = {:.3f}".format(loss))
     pass
+
+
 tests.test_train_nn(train_nn)
 
 
